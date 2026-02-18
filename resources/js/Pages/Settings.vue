@@ -42,7 +42,7 @@ const props = defineProps({
         required: false,
     },
     flash: {
-        type: Array,
+        type: Object,
         required: false,
     },
 });

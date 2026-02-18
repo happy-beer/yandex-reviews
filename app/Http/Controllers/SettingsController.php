@@ -46,6 +46,11 @@ class SettingsController extends Controller
             );
         }
 
+        $allKeys = array_keys(session()->all());
+        $yandexKeys = array_filter($allKeys, fn($key) => str_starts_with($key, 'yandex.'));
+
+        session()->forget($yandexKeys);
+
         return back()->with('success', true);
     }
 
