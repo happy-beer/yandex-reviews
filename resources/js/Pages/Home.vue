@@ -25,7 +25,7 @@ const props = defineProps({
         <div class="flex flex-row mt-6">
             <div class=" px-6 py-4 w-9/12">
                 <div class="mb-2">
-                    <a :href="settings.value"
+                    <a v-if="settings && settings.value && settings.value.length > 0" :href="settings.value"
                           target="_blank"
                           class="p-[4px] border w-auto inline-flex border-gray-200  transition-all ease-in  rounded-md
                                     disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed
@@ -43,10 +43,13 @@ const props = defineProps({
                         </svg>
                         <span class="block">Яндекс Карты</span>
                     </a>
+                    <span v-else>
+                        Не задана ссылка на Яндекс
+                    </span>
                 </div>
                 <ReviewsBlock :organizationName="name" :reqData="reqData" :pageSize="pageSize"/>
             </div>
-            <div class="rounded-2xl shadow-lg shadow-gray-300 mx-6 p-6 h-50 w-3/12">
+            <div v-if="rating" class="rounded-2xl shadow-lg shadow-gray-300 mx-6 p-6 h-50 w-3/12">
                 <div class="flex items-center border-b-2 pb-6 border-b-gray-200">
                     <span class="text-5xl font-medium mr-2">{{ rating }}</span>
                     <Rating :rating="rating"  :size="8" :space="3"/>

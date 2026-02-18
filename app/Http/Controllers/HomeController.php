@@ -17,18 +17,26 @@ class HomeController extends Controller
             ->where('key', 'yandex_url')
             ->first();
 
-        $session = $request->session();
+        $businessId = '';
+        $csrfToken = '';
+        $sessionId = '';
+        $reqId = '';
+        $rating = '';
+        $name = '';
+        $reviewCount = '';
 
-        $businessId = $session->get('yandex.businessId') ?? '';
-        $csrfToken = $session->get('yandex.csrfToken') ?? '';
-        $sessionId = $session->get('yandex.sessionId') ?? '';
-        $reqId = $session->get('yandex.reqId') ?? '';
-        $rating = $session->get('yandex.rating') ?? '';
-        $name = $session->get('yandex.name') ?? '';
-        $reviewCount = $session->get('yandex.reviewCount') ?? '';
+        if ($setting && $setting->value) {
 
-        if (!$businessId || !$csrfToken || !$sessionId || !$reqId) {
-            if ($setting && $setting->value) {
+            $session = $request->session();
+            $businessId = $session->get('yandex.businessId') ?? '';
+            $csrfToken = $session->get('yandex.csrfToken') ?? '';
+            $sessionId = $session->get('yandex.sessionId') ?? '';
+            $reqId = $session->get('yandex.reqId') ?? '';
+            $rating = $session->get('yandex.rating') ?? '';
+            $name = $session->get('yandex.name') ?? '';
+            $reviewCount = $session->get('yandex.reviewCount') ?? '';
+
+            if (!$businessId || !$csrfToken || !$sessionId || !$reqId) {
                 $url = $setting->value;
 
                 try {
@@ -114,7 +122,7 @@ class HomeController extends Controller
                 'reqId' => $reqId,
             ],
             'pageSize' => config('reviews.per_page'),
-            'reviewCount'  => $reviewCount,
+            'reviewCount' => $reviewCount,
             'rating' => $rating ?? '',
             'name' => $name,
         ]);
