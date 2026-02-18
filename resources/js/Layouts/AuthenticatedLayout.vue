@@ -79,7 +79,7 @@ onMounted(() => {
                     </div>
                 </nav>
 
-                <main class="flex flex-col w-full mb-14  divide-y-1 divide-gray-200">
+                <main class="h-full flex flex-col w-full mb-14  divide-y-1 divide-gray-200 bg-white">
                     <header class="flex justify-end items-center p-4 bg-white">
                         <button @click="logout" title="Выйти"
                                 class="px-4 py-2 rounded hover:cursor-pointer text-gray-500 hover:text-gray-700">
@@ -102,7 +102,7 @@ onMounted(() => {
 </template>
 
 <script>
-import {router} from '@inertiajs/vue3'
+import {router, Link} from '@inertiajs/vue3'
 
 export default {
     name: "AuthenticatedLayout",
