@@ -5,6 +5,7 @@ import ReviewsBlock from "@/Components/ReviewsBlock.vue";
 
 const props = defineProps({
     name: String,
+    cookie: String,
     rating: String,
     reviewCount: Number,
     pageSize: Number,
@@ -47,7 +48,7 @@ const props = defineProps({
                         Не задана ссылка на Яндекс
                     </span>
                 </div>
-                <ReviewsBlock :organizationName="name" :reqData="reqData" :pageSize="pageSize"/>
+                <ReviewsBlock :organizationName="name" :reqData="reqData" :pageSize="pageSize" :cookie="cookie"/>
             </div>
             <div v-if="rating" class="rounded-2xl shadow-lg shadow-gray-300 mx-6 p-6 h-50 w-3/12">
                 <div class="flex items-center border-b-2 pb-6 border-b-gray-200">

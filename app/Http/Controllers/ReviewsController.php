@@ -2,15 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\YandexMapsClient;
+use GuzzleHttp\Cookie\CookieJar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
 class ReviewsController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, YandexMapsClient $yandex)
     {
 
         $data = $request->validate([
+            'cookie' => 'sometimes|string',
             'businessId' => 'required|string',
             'csrfToken' => 'required|string',
             'sessionId' => 'required|string',
@@ -24,20 +27,21 @@ class ReviewsController extends Controller
             "csrfToken" => $data['csrfToken'],
             "sessionId" => $data['sessionId'],
             "businessId" => $data['businessId'],
-            "page" => $data['page'],
-            "pageSize" => $data['pageSize'],
+            "page" => $data['page']??1,
+            "pageSize" => $data['pageSize']??config('reviews.per_page'),
             "reqId" => $data['reqId'],
             "ranking" => 'by_time',
             "locale" => 'ru_UA',
             "ajax" => 1,
         ];
 
-        $reviews = $this->loadReviews($params);
+        $cookies = !empty($data['cookie']) ? (unserialize($data['cookie']) ?: []) : [];
+        $result = $yandex->fetchReviews($params, $cookies, $request);
 
-        return response()->json($reviews);
+        return response()->json($result);
     }
 
-    protected function loadReviews($params)
+    protected function loadReviews($params, $cookies, Request $request, $try = 0)
     {
         $params['s'] = $this->makeHash($params);
 
@@ -82,28 +86,67 @@ class ReviewsController extends Controller
                 ]
             ];
         } else {
-            $response = Http::get($url, $params)->body();
+            $jar = new CookieJar(false, $cookies);
+
+            $resp = Http::withOptions(['cookies' => $jar])->withHeaders([
+                'User-Agent' => $request->header('User-Agent'),
+                'Accept' => 'application/json,text/javascript,*/*;q=0.01',
+                'Accept-Language' => 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+                'X-Requested-With' => 'XMLHttpRequest',
+                'Origin' => 'https://yandex.com.ge/',
+                'Referer' => 'https://yandex.com.ge/maps/org/'.$params['businessId'].'/reviews/',
+            ])->get($url, $params);
+
+            $cookies = $jar->toArray();
+
+            $response = $resp->body();
             $data = json_decode($response, true);
+            if(isset($data['csrfToken']) && $try < 2) {
+                unset($params['s']);
+                $params['csrfToken'] = $data['csrfToken'];
+                $try++;
+                return $this->loadReviews($params, $cookies, $request, $try);
+            }
         }
 
 
         return [
+            'cookie' => serialize($cookies),
+            'csrfToken' => $params['csrfToken'],
             'reviews' => $data['data']['reviews']??[],
             'params' => $data['data']['params']??[],
         ];
     }
 
-    protected function makeHash(array $params): string
+    private function makeHash(array $params): string
     {
-        ksort($params);
+        unset($params['s']);
 
-        $query = http_build_query($params);
-
-        $hash = 5381;
-        for ($i = 0, $len = strlen($query); $i < $len; $i++) {
-            $hash = (($hash << 5) + $hash) ^ ord($query[$i]); // n * 33 ^ charCode
+        foreach ($params as $k => $v) {
+            $params[$k] = (string)$v;
         }
 
-        return (string) ($hash & 0xFFFFFFFF);
+        ksort($params, SORT_STRING);
+
+        $qs = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+
+        if ($qs === '') {
+            return '';
+        }
+
+        return (string)$this->djb2XorHash32($qs);
+    }
+
+    private function djb2XorHash32(string $s): int
+    {
+        $n = 5381;
+        $len = strlen($s);
+
+        for ($i = 0; $i < $len; $i++) {
+            $n = (($n * 33) ^ ord($s[$i])) & 0xFFFFFFFF;
+        }
+
+        // unsigned like >>> 0
+        return $n < 0 ? $n + 4294967296 : $n;
     }
 }
