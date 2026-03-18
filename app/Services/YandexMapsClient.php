@@ -2,92 +2,159 @@
 
 namespace App\Services;
 
+use App\Exceptions\YandexProviderException;
 use GuzzleHttp\Cookie\CookieJar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\Client\RequestException;
+use InvalidArgumentException;
+use Throwable;
 
 class YandexMapsClient
 {
+    private const MAX_RETRY_COUNT = 2;
     private string $reviewsApiUrl = 'https://yandex.ru/maps/api/business/fetchReviews';
 
     public function extractFromOrgPage(string $orgUrl, Request $request): array
     {
-        $mock = (bool) env('YANDEX_MOCK', false);
+        try {
+            $validator = Validator::make(
+                [
+                    'orgUrl' => $orgUrl,
+                ],
+                [
+                    'orgUrl' => ['required', 'url'],
+                ],
+                [
+                    'orgUrl.required' => 'URL ir required.',
+                    'orgUrl.url' => 'URL must be valid URL.',
+                ]
+            );
+            if ($validator->fails()) {
+                throw new InvalidArgumentException($validator->errors()->first());
+            }
 
-        if ($mock) {
-            $html = file_get_contents(storage_path('app/mock/yandex_reviews.html'));
-            $jarArray = [];
-        } else {
-            $jar = new CookieJar();
+            $mock = config('yandex.mock');
 
-            $resp = Http::withOptions(['cookies' => $jar])
-                ->withHeaders($this->baseHeaders($request) + [
-                        'Referer' => 'https://yandex.com.ge/maps/',
-                    ])
-                ->get($orgUrl);
+            if ($mock) {
+                $html = file_get_contents(storage_path('app/mock/yandex_reviews.html'));
+                $jarArray = [];
+            } else {
+                $jar = new CookieJar();
 
-            $html = $resp->body();
-            $jarArray = $jar->toArray();
+                $resp = Http::timeout(10)->withOptions(['cookies' => $jar])
+                    ->withHeaders($this->baseHeaders($request) + [
+                            'Referer' => 'https://yandex.com.ge/maps/',
+                        ])
+                    ->get($orgUrl);
+
+                $resp->throw();
+
+                $html = $resp->body();
+
+                $jarArray = $jar->toArray();
+            }
+
+            $state = $this->extractStateViewJson($html);
+
+            return [
+                'businessId' => data_get($state, 'config.landing.orgId', ''),
+                'csrfToken' => data_get($state, 'config.csrfToken', ''),
+                'sessionId' => data_get($state, 'config.counters.analytics.sessionId', ''),
+                'reqId' => data_get($state, 'config.requestId', ''),
+                'name' => $this->extractName($state),
+                'rating' => $this->extractRatingText($state),
+                'reviewCount' => data_get($state, 'stack.0.results.items.0.ratingData.reviewCount', ''),
+                'cookies' => $jarArray,
+            ];
+        } catch (Throwable $e) {
+            $this->rethrowAsYandexException($e);
         }
-
-        $state = $this->extractStateViewJson($html);
-
-        return [
-            'businessId'  => data_get($state, 'config.landing.orgId', ''),
-            'csrfToken'   => data_get($state, 'config.csrfToken', ''),
-            'sessionId'   => data_get($state, 'config.counters.analytics.sessionId', ''),
-            'reqId'       => data_get($state, 'config.requestId', ''),
-            'name'        => $this->extractName($state),
-            'rating'      => $this->extractRatingText($state),
-            'reviewCount' => data_get($state, 'stack.0.results.items.0.ratingData.reviewCount', ''),
-            'cookies'     => $jarArray,
-        ];
     }
 
-    public function fetchReviews(array $params, array $cookies, Request $request, int $try = 0): array
+    public function fetchReviews(array $params, array $cookies, Request $request, YandexSessionStore $sessionStore, int $try = 0): array
     {
-        $mock = (bool) env('YANDEX_MOCK', false);
+        try {
+            $validator = Validator::make($params, [
+                'csrfToken'  => ['required','string'],
+                'sessionId'  => ['required','string'],
+                'businessId' => ['required'],
+                'page'       => ['required','integer','min:1'],
+                'pageSize'   => ['required','integer','min:1'],
+                'reqId'      => ['required','string'],
+                'ranking'    => ['required','string'],
+                'locale'     => ['required','string'],
+                'ajax'       => ['required'],
+            ]);
 
-        $params['s'] = $this->makeHash($params);
+            if ($validator->fails()) {
+                throw new InvalidArgumentException($validator->errors()->first());
+            }
 
-        if ($mock) {
-            return $this->mockReviews($params, $cookies);
+            $mock = config('yandex.mock');
+
+            $params['s'] = $this->makeHash($params);
+
+            if ($mock) {
+                return $this->mockReviews($params, $cookies);
+            }
+
+            $jar = new CookieJar(false, $cookies);
+
+            $resp = Http::timeout(10)->withOptions(['cookies' => $jar])
+                ->withHeaders($this->baseHeaders($request) + [
+                        'Referer' => 'https://yandex.com.ge/maps/org/' . ($params['businessId'] ?? '') . '/reviews/',
+                    ])
+                ->get($this->reviewsApiUrl, $params);
+
+            $resp->throw();
+
+            $newCookies = $jar->toArray();
+            $data = json_decode($resp->body(), true) ?: [];
+
+            $sessionStore->putPartial($request, $params);
+
+            if (isset($data['csrfToken']) && $try < self::MAX_RETRY_COUNT) {
+                $params['csrfToken'] = $data['csrfToken'];
+                unset($params['s']);
+                return $this->fetchReviews($params, $newCookies, $request, $sessionStore, $try + 1);
+            }
+
+
+            return [
+                'reviews' => $data['data']['reviews'] ?? [],
+                'params' => $data['data']['params'] ?? [],
+            ];
+        } catch (Throwable $e) {
+            $this->rethrowAsYandexException($e);
+        }
+    }
+
+    private function rethrowAsYandexException(Throwable $e): never
+    {
+        Log::error($e);
+
+        if ($e instanceof InvalidArgumentException) {
+            throw new YandexProviderException($e->getMessage(), 0, $e);
         }
 
-        $jar = new CookieJar(false, $cookies);
-
-        $resp = Http::withOptions(['cookies' => $jar])
-            ->withHeaders($this->baseHeaders($request) + [
-                    'Referer' => 'https://yandex.com.ge/maps/org/' . ($params['businessId'] ?? '') . '/reviews/',
-                ])
-            ->get($this->reviewsApiUrl, $params);
-
-        $newCookies = $jar->toArray();
-        $data = json_decode($resp->body(), true) ?: [];
-
-
-        if (isset($data['csrfToken']) && $try < 2) {
-            $params['csrfToken'] = $data['csrfToken'];
-            unset($params['s']);
-            return $this->fetchReviews($params, $newCookies, $request, $try + 1);
+        if ($e instanceof RequestException) {
+            throw new YandexProviderException('Yandex provider request failed.', 0, $e);
         }
 
-        return [
-            'cookie'    => serialize($newCookies),
-            'csrfToken' => $params['csrfToken'] ?? '',
-            'reviews'   => $data['data']['reviews'] ?? [],
-            'params'    => $data['data']['params'] ?? [],
-        ];
+        throw new YandexProviderException('Internal Yandex integration error.', 0, $e);
     }
 
     private function baseHeaders(Request $request): array
     {
         return [
-            'User-Agent'        => $request->header('User-Agent', ''),
-            'Accept'            => 'application/json,text/javascript,*/*;q=0.01',
-            'Accept-Language'   => 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-            'X-Requested-With'  => 'XMLHttpRequest',
-            'Origin'            => 'https://yandex.com.ge/',
+            'User-Agent' => $request->header('User-Agent', ''),
+            'Accept' => 'application/json,text/javascript,*/*;q=0.01',
+            'Accept-Language' => 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+            'X-Requested-With' => 'XMLHttpRequest',
+            'Origin' => 'https://yandex.com.ge/',
         ];
     }
 
@@ -172,10 +239,8 @@ class YandexMapsClient
         $pageItems = array_slice($all, $offset, $pageSize);
 
         return [
-            'cookie'    => serialize($cookies),
-            'csrfToken' => (string)($params['csrfToken'] ?? ''),
-            'reviews'   => $pageItems,
-            'params'    => [
+            'reviews' => $pageItems,
+            'params' => [
                 'page' => $page,
                 'totalPages' => (int)ceil($totalReviews / $pageSize),
                 'count' => $totalReviews,

@@ -21,8 +21,8 @@ const formattedDate = computed(() => {
 })
 </script>
 <template>
-    <div class="py-4 pl-4 bg-white rounded-2xl shadow-md space-y-2 border border-gray-100">
-        <div class="pt-1 pb-2 pr-4 bg-slate-50 rounded-lg">
+    <div class="p-4 bg-white rounded-2xl shadow-md space-y-2 border border-gray-100">
+        <div class="pt-1 pb-2 pr-4">
             <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center space-x-2 text-gray-500 text-base">
                     <span class="font-semibold text-gray-700">{{ formattedDate }}</span>

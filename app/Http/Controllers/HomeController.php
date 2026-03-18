@@ -2,81 +2,94 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\YandexProviderException;
 use App\Services\YandexMapsClient;
-use GuzzleHttp\Cookie\CookieJar;
+use App\Services\YandexSessionStore;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\Http;
 use App\Models\Setting;
-use Nette\Utils\Arrays;
+use InvalidArgumentException;
+use Throwable;
 
 class HomeController extends Controller
 {
-    public function index(Request $request, YandexMapsClient $yandex)
-    {
-        $userId = auth()->id();
-        $setting = Setting::where('user_id', $userId)
-            ->where('key', 'yandex_url')
-            ->first();
 
-        $businessId = '';
-        $csrfToken = '';
-        $sessionId = '';
-        $reqId = '';
-        $rating = '';
-        $name = '';
-        $reviewCount = '';
-        $jarArray = [];
+    public function index(Request $request, YandexMapsClient $yandex, YandexSessionStore $sessionStore)
+    {
+        $setting = $this->getYandexSetting(auth()->id());
+
+        $data = [
+            'success' => true,
+            'message' => '',
+            'businessId' => '',
+            'csrfToken' => '',
+            'sessionId' => '',
+            'reqId' => '',
+            'rating' => '',
+            'name' => '',
+            'reviewCount' => '',
+            'cookies' => [],
+        ];
 
         if ($setting && $setting->value) {
+            $data = array_merge($data, $sessionStore->get($request));
 
-            $session = $request->session();
-            $businessId = $session->get('yandex.businessId') ?? '';
-            $csrfToken = $session->get('yandex.csrfToken') ?? '';
-            $sessionId = $session->get('yandex.sessionId') ?? '';
-            $reqId = $session->get('yandex.reqId') ?? '';
-            $rating = $session->get('yandex.rating') ?? '';
-            $name = $session->get('yandex.name') ?? '';
-            $reviewCount = $session->get('yandex.reviewCount') ?? '';
-            $jarArray = $session->get('yandex.cookies', []);
-
-            if (!$businessId || !$csrfToken || !$sessionId || !$reqId) {
-
-                $yData = $yandex->extractFromOrgPage($setting->value, $request);
-
-                $businessId  = $yData['businessId'];
-                $csrfToken   = $yData['csrfToken'];
-                $sessionId   = $yData['sessionId'];
-                $reqId       = $yData['reqId'];
-                $name        = $yData['name'];
-                $rating      = $yData['rating'];
-                $reviewCount = $yData['reviewCount'];
-                $jarArray    = $yData['cookies'];
-
-                $session->put('yandex.businessId', $businessId);
-                $session->put('yandex.csrfToken', $csrfToken);
-                $session->put('yandex.sessionId', $sessionId);
-                $session->put('yandex.reqId', $reqId);
-                $session->put('yandex.name', $name);
-                $session->put('yandex.rating', $rating);
-                $session->put('yandex.reviewCount', $reviewCount);
-                $session->put('yandex.cookies', $jarArray);
+            if (!$sessionStore->hasRequiredData($data)) {
+                $data = $this->fetchAndStoreYandexData($request, $yandex, $setting->value, $data, $sessionStore);
             }
         }
 
         return Inertia::render('Home', [
+            'success' => $data['success'],
+            'message' => $data['message'],
             'settings' => $setting,
-            'reqData' => [
-                'businessId' => $businessId,
-                'csrfToken' => $csrfToken,
-                'sessionId' => $sessionId,
-                'reqId' => $reqId,
-            ],
             'pageSize' => config('reviews.per_page'),
-            'reviewCount' => $reviewCount,
-            'rating' => $rating ?? '',
-            'name' => $name,
-            'cookie' => serialize($jarArray),
+            'reviewCount' => $data['reviewCount'],
+            'rating' => $data['rating'],
+            'name' => $data['name'],
         ]);
     }
+
+    private function getYandexSetting(?int $userId): ?Setting
+    {
+        return Setting::where('user_id', $userId)
+            ->where('key', 'yandex_url')
+            ->first();
+    }
+
+    private function fetchAndStoreYandexData(
+        Request          $request,
+        YandexMapsClient $yandex,
+        string           $orgUrl,
+        array            $currentData,
+        YandexSessionStore $sessionStore
+    ): array
+    {
+        try {
+            $yData = $yandex->extractFromOrgPage($orgUrl, $request);
+
+            $mergedData = array_merge($currentData, [
+                'businessId' => $yData['businessId'] ?? '',
+                'csrfToken' => $yData['csrfToken'] ?? '',
+                'sessionId' => $yData['sessionId'] ?? '',
+                'reqId' => $yData['reqId'] ?? '',
+                'name' => $yData['name'] ?? '',
+                'rating' => $yData['rating'] ?? '',
+                'reviewCount' => $yData['reviewCount'] ?? '',
+                'cookies' => $yData['cookies'] ?? [],
+            ]);
+
+            $sessionStore->put($request, $mergedData);
+
+            return $mergedData;
+        } catch (YandexProviderException $e) {
+            return array_merge($currentData, [
+                'success' => false,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
 }
