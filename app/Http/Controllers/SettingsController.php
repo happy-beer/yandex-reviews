@@ -1,43 +1,47 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdateSettingsRequest;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class SettingsController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $userId = auth()->id();
+        $userId = $request->user()->id;
+        $allowedKeys = Setting::allowedKeys();
 
         $settings = Setting::where('user_id', $userId)
-            ->whereIn('key', Setting::allowedKeys())
+            ->whereIn('key', $allowedKeys)
             ->get()
             ->keyBy('key');
 
+        return Inertia::render('Settings', [
+            'settings' => $this->formatSettingsForView($allowedKeys, $settings),
+        ]);
+    }
+
+    private function formatSettingsForView(array $allowedKeys, $settings): array
+    {
         $result = [];
-        foreach (Setting::allowedKeys() as $key) {
+
+        foreach ($allowedKeys as $key) {
             $result[] = [
                 'key' => $key,
                 'value' => $settings[$key]->value ?? '',
             ];
         }
 
-        return Inertia::render('Settings', [
-            'settings' => $result,
-        ]);
+        return $result;
     }
 
-    public function update(Request $request)
+    public function update(UpdateSettingsRequest $request)
     {
-        $data = $request->validate([
-            'settings' => 'required|array',
-            'settings.*.key' => 'required|string|in:' . implode(',', Setting::allowedKeys()),
-            'settings.*.value' => 'required|string|max:255',
-        ]);
+        $data = $request->validated();
 
-        $userId = auth()->id();
+        $userId = $request->user()->id;
 
         foreach ($data['settings'] as $setting) {
             Setting::updateOrCreate(
@@ -46,7 +50,7 @@ class SettingsController extends Controller
             );
         }
 
-        session()->forget('yandex');
+        $request->session()->forget('yandex');
 
         return back()->with('success', true);
     }

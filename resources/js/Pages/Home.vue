@@ -18,10 +18,10 @@ const props = defineProps({
 <template>
     <AuthenticatedLayout>
 
-        <div class="flex flex-row mt-6">
+        <div class="flex flex-row mt-6"  v-if="settings && settings.value && settings.value.length > 0">
             <div class=" px-6 py-4 w-9/12">
                 <div class="mb-2">
-                    <a v-if="settings && settings.value && settings.value.length > 0" :href="settings.value"
+                    <a :href="settings.value"
                           target="_blank"
                           class="p-[4px] border w-auto inline-flex border-gray-200  transition-all ease-in  rounded-md
                                     disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed
@@ -39,9 +39,6 @@ const props = defineProps({
                         </svg>
                         <span class="block">Яндекс Карты</span>
                     </a>
-                    <span v-else>
-                        Не задана ссылка на Яндекс
-                    </span>
                 </div>
                 <ReviewsBlock :organizationName="name" :pageSize="pageSize" />
             </div>
@@ -56,6 +53,10 @@ const props = defineProps({
                 </div>
             </div>
         </div>
+
+        <span v-else>
+            Не задана ссылка на Яндекс
+        </span>
 
     </AuthenticatedLayout>
 </template>
