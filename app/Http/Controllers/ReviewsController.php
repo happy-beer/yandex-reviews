@@ -36,7 +36,9 @@ class ReviewsController extends Controller
             "ajax" => 1,
         ];
         try {
-            $result = $yandex->fetchReviews($params, $yData['cookies'], $request, $sessionStore);
+            $result = $yandex->fetchReviews($params, $yData['cookies'], $request);
+
+            $sessionStore->putPartial($request, $result);
 
             return response()->json($result);
         } catch (YandexProviderException $e) {

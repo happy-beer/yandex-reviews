@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Cache;
 use App\Exceptions\YandexProviderException;
 use GuzzleHttp\Cookie\CookieJar;
 use Illuminate\Http\Request;
@@ -74,7 +75,7 @@ class YandexMapsClient
         }
     }
 
-    public function fetchReviews(array $params, array $cookies, Request $request, YandexSessionStore $sessionStore, int $try = 0): array
+    public function fetchReviews(array $params, array $cookies, Request $request, int $try = 0): array
     {
         try {
             $validator = Validator::make($params, [
@@ -101,35 +102,64 @@ class YandexMapsClient
                 return $this->mockReviews($params, $cookies);
             }
 
-            $jar = new CookieJar(false, $cookies);
+            $cacheLifetime = (int) config('yandex.reviews_cache_lifetime', 300);
 
-            $resp = Http::timeout(10)->withOptions(['cookies' => $jar])
-                ->withHeaders($this->baseHeaders($request) + [
-                        'Referer' => 'https://yandex.com.ge/maps/org/' . ($params['businessId'] ?? '') . '/reviews/',
-                    ])
-                ->get($this->reviewsApiUrl, $params);
-
-            $resp->throw();
-
-            $newCookies = $jar->toArray();
-            $data = json_decode($resp->body(), true) ?: [];
-
-            $sessionStore->putPartial($request, $params);
-
-            if (isset($data['csrfToken']) && $try < self::MAX_RETRY_COUNT) {
-                $params['csrfToken'] = $data['csrfToken'];
-                unset($params['s']);
-                return $this->fetchReviews($params, $newCookies, $request, $sessionStore, $try + 1);
+            if ($cacheLifetime <= 0) {
+                return $this->performFetchReviews($params, $cookies, $request, $try);
             }
 
+            $cacheKey = $this->makeReviewsCacheKey($params);
 
-            return [
-                'reviews' => $data['data']['reviews'] ?? [],
-                'params' => $data['data']['params'] ?? [],
-            ];
+            return Cache::remember(
+                $cacheKey,
+                now()->addSeconds($cacheLifetime),
+                fn () => $this->performFetchReviews($params, $cookies, $request, $try)
+            );
         } catch (Throwable $e) {
             $this->rethrowAsYandexException($e);
         }
+    }
+
+    private function performFetchReviews(array $params, array $cookies, Request $request, int $try = 0): array
+    {
+        $params['s'] = $this->makeHash($params);
+
+        $jar = new CookieJar(false, $cookies);
+
+        $resp = Http::timeout(10)
+            ->withOptions(['cookies' => $jar])
+            ->withHeaders($this->baseHeaders($request) + [
+                    'Referer' => 'https://yandex.com.ge/maps/org/' . ($params['businessId'] ?? '') . '/reviews/',
+                ])
+            ->get($this->reviewsApiUrl, $params);
+
+        $resp->throw();
+
+        $newCookies = $jar->toArray();
+        $data = json_decode($resp->body(), true) ?: [];
+
+        if (isset($data['csrfToken']) && $try < self::MAX_RETRY_COUNT) {
+            $params['csrfToken'] = $data['csrfToken'];
+            unset($params['s']);
+
+            return $this->performFetchReviews($params, $newCookies, $request, $try + 1);
+        }
+
+        return [
+            'reviews' => $data['data']['reviews'] ?? [],
+            'params' => $data['data']['params'] ?? [],
+        ];
+    }
+
+    private function makeReviewsCacheKey(array $params): string
+    {
+        return 'yandex_reviews:' . md5(json_encode([
+                'businessId' => $params['businessId'],
+                'page' => $params['page'],
+                'pageSize' => $params['pageSize'],
+                'ranking' => $params['ranking'],
+                'locale' => $params['locale'],
+            ]));
     }
 
     private function rethrowAsYandexException(Throwable $e): never
