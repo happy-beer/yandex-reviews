@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\PlaceResource;
+use App\Http\Resources\ReviewResource;
+use App\Http\Resources\SyncRunResource;
 use App\Http\Requests\StorePlaceRequest;
 use App\Http\Requests\UpdatePlaceRequest;
 use App\Models\Place;
@@ -21,7 +24,7 @@ class PlaceController extends Controller
             ->withQueryString();
 
         return Inertia::render('Places/Index', [
-            'places' => $places,
+            'places' => PlaceResource::collection($places),
         ]);
     }
 
@@ -61,9 +64,9 @@ class PlaceController extends Controller
             ->withQueryString();
 
         return Inertia::render('Places/Show', [
-            'place' => $place,
-            'reviews' => $reviews,
-            'syncRuns' => $syncRuns,
+            'place' => (new PlaceResource($place))->resolve(),
+            'reviews' => ReviewResource::collection($reviews),
+            'syncRuns' => SyncRunResource::collection($syncRuns),
         ]);
     }
 
@@ -72,7 +75,7 @@ class PlaceController extends Controller
         $this->authorize('update', $place);
 
         return Inertia::render('Places/Edit', [
-            'place' => $place,
+            'place' => (new PlaceResource($place))->resolve(),
         ]);
     }
 

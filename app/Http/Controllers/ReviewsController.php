@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\YandexProviderException;
 use App\Http\Requests\IndexReviewsRequest;
+use App\Http\Resources\PlaceResource;
+use App\Http\Resources\ReviewResource;
 use App\Models\Place;
 use App\Models\Review;
 use App\Services\YandexMapsClient;
@@ -70,8 +72,8 @@ class ReviewsController extends Controller
                 'date_to' => $data['date_to'] ?? null,
                 'sort' => $sort,
             ],
-            'places' => $places,
-            'reviews' => $reviews,
+            'places' => PlaceResource::collection($places),
+            'reviews' => ReviewResource::collection($reviews),
         ]);
     }
 
