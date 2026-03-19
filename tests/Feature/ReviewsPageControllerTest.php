@@ -158,6 +158,56 @@ class ReviewsPageControllerTest extends TestCase
         );
     }
 
+    public function test_reviews_page_applies_newest_and_oldest_sorting_modes(): void
+    {
+        $user = User::factory()->create();
+
+        $place = Place::query()->create([
+            'user_id' => $user->id,
+            'name' => 'Chrono place',
+            'source_url' => 'https://yandex.ru/maps/org/chrono/15/reviews/',
+            'is_active' => true,
+        ]);
+
+        $oldest = Review::query()->create([
+            'place_id' => $place->id,
+            'external_id' => 'chrono-old',
+            'author_name' => 'Old',
+            'text' => 'Oldest',
+            'rating' => 4,
+            'published_at' => now()->subDays(5),
+        ]);
+
+        $newest = Review::query()->create([
+            'place_id' => $place->id,
+            'external_id' => 'chrono-new',
+            'author_name' => 'New',
+            'text' => 'Newest',
+            'rating' => 3,
+            'published_at' => now()->subDay(),
+        ]);
+
+        $newestResponse = $this->actingAs($user)->get(route('reviews.index', [
+            'sort' => 'newest',
+        ]));
+
+        $newestResponse->assertOk();
+        $newestResponse->assertInertia(fn (Assert $page) => $page
+            ->component('Reviews/Index')
+            ->where('reviews.data.0.id', $newest->id)
+        );
+
+        $oldestResponse = $this->actingAs($user)->get(route('reviews.index', [
+            'sort' => 'oldest',
+        ]));
+
+        $oldestResponse->assertOk();
+        $oldestResponse->assertInertia(fn (Assert $page) => $page
+            ->component('Reviews/Index')
+            ->where('reviews.data.0.id', $oldest->id)
+        );
+    }
+
     public function test_reviews_pagination_links_keep_filters_in_query_string(): void
     {
         $user = User::factory()->create();

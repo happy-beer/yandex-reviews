@@ -137,4 +137,29 @@ class PlaceControllerTest extends TestCase
             ->delete(route('places.destroy', $place))
             ->assertForbidden();
     }
+
+    public function test_user_cannot_update_foreign_place(): void
+    {
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
+
+        $place = Place::query()->create([
+            'user_id' => $owner->id,
+            'name' => 'Owner place',
+            'source_url' => 'https://yandex.ru/maps/org/owner/7/reviews/',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($otherUser)
+            ->put(route('places.update', $place), [
+                'name' => 'Hacked name',
+                'source_url' => 'https://yandex.ru/maps/org/hacked/7/reviews/',
+                'is_active' => false,
+            ])
+            ->assertForbidden();
+
+        $place->refresh();
+        $this->assertSame('Owner place', $place->name);
+        $this->assertTrue($place->is_active);
+    }
 }
