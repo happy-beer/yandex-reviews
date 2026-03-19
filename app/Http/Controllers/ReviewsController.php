@@ -3,18 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\YandexProviderException;
+use App\Http\Requests\IndexReviewsRequest;
 use App\Services\YandexMapsClient;
 use App\Services\YandexSessionStore;
-use Illuminate\Http\Request;
 
 class ReviewsController extends Controller
 {
-    public function index(Request $request, YandexMapsClient $yandex, YandexSessionStore $sessionStore)
+    public function index(IndexReviewsRequest $request, YandexMapsClient $yandex, YandexSessionStore $sessionStore)
     {
-        $data = $request->validate([
-            'page' => 'sometimes|integer|min:1',
-            'pageSize' => 'sometimes|integer|min:1',
-        ]);
+        $data = $request->validated();
 
         $yData = $sessionStore->get($request);
 

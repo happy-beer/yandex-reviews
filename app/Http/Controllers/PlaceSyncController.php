@@ -11,9 +11,7 @@ class PlaceSyncController extends Controller
 {
     public function store(Place $place, PlaceSyncService $service, Request $request): RedirectResponse
     {
-        if ((int) $place->user_id !== (int) $request->user()->id) {
-            abort(403);
-        }
+        $this->authorize('sync', $place);
 
         $result = $service->sync($place, $request);
 
