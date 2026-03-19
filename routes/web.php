@@ -6,9 +6,8 @@ use App\Http\Controllers\ReviewsController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PlaceSyncController;
 use App\Http\Controllers\PlaceController;
-use Illuminate\Foundation\Application;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,10 +21,6 @@ use Inertia\Inertia;
 */
 
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
-
 Route::middleware('auth')->group(function () {
 
     Route::get('/', [HomeController::class, 'index']);
@@ -38,7 +33,10 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/settings', [SettingsController::class, 'index']);
     Route::post('/settings', [SettingsController::class, 'update']);
+});
 
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/reviews', [ReviewsController::class, 'index'])->name('reviews.index');
     Route::post('/places/{place}/sync', [PlaceSyncController::class, 'store'])->name('places.sync');
     Route::resource('places', PlaceController::class);
