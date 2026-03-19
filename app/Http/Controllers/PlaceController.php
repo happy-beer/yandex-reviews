@@ -53,8 +53,33 @@ class PlaceController extends Controller
     {
         $this->authorize('view', $place);
 
-        $reviews = $place->reviews()
-            ->newest()
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'rating' => ['nullable', 'integer', 'between:1,5'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+            'sort' => ['nullable', 'in:newest,oldest,rating_desc,rating_asc'],
+        ]);
+
+        $sort = $filters['sort'] ?? 'newest';
+
+        $reviewsQuery = $place->reviews()
+            ->search($filters['search'] ?? null)
+            ->withRating(isset($filters['rating']) ? (int) $filters['rating'] : null)
+            ->publishedFrom($filters['date_from'] ?? null)
+            ->publishedTo($filters['date_to'] ?? null);
+
+        if ($sort === 'oldest') {
+            $reviewsQuery->oldest();
+        } elseif ($sort === 'rating_desc') {
+            $reviewsQuery->orderByDesc('rating')->orderByDesc('published_at');
+        } elseif ($sort === 'rating_asc') {
+            $reviewsQuery->orderBy('rating')->orderByDesc('published_at');
+        } else {
+            $reviewsQuery->newest();
+        }
+
+        $reviews = $reviewsQuery
             ->paginate(10, ['*'], 'reviews_page')
             ->withQueryString();
 
@@ -67,6 +92,13 @@ class PlaceController extends Controller
             'place' => (new PlaceResource($place))->resolve(),
             'reviews' => ReviewResource::collection($reviews),
             'syncRuns' => SyncRunResource::collection($syncRuns),
+            'filters' => [
+                'search' => $filters['search'] ?? null,
+                'rating' => isset($filters['rating']) ? (int) $filters['rating'] : null,
+                'date_from' => $filters['date_from'] ?? null,
+                'date_to' => $filters['date_to'] ?? null,
+                'sort' => $sort,
+            ],
         ]);
     }
 

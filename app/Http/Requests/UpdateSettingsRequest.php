@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Setting;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateSettingsRequest extends FormRequest
 {
@@ -22,10 +23,12 @@ class UpdateSettingsRequest extends FormRequest
      */
     public function rules(): array
     {
+        $allowedKeys = Setting::allowedKeys();
+
         return [
-            'settings' => 'required|array',
-            'settings.*.key' => 'required|string|in:' . implode(',', Setting::allowedKeys()),
-            'settings.*.value' => 'required|string|max:255',
+            'settings' => ['sometimes', 'array'],
+            'settings.*.key' => ['required_with:settings', 'string', Rule::in($allowedKeys)],
+            'settings.*.value' => ['required_with:settings', 'string', 'max:255'],
         ];
     }
 }

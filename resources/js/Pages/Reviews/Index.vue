@@ -1,13 +1,18 @@
 <script setup>
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
+import ReviewCard from '@/Components/ReviewCard.vue';
+import ReviewFilters from '@/Components/ReviewFilters.vue';
+import { router } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
-defineProps({
+const props = defineProps({
     filters: {
         type: Object,
         required: true,
     },
     places: {
-        type: Array,
+        type: [Array, Object],
         required: true,
     },
     reviews: {
@@ -15,19 +20,50 @@ defineProps({
         required: true,
     },
 });
+
+const normalizedPlaces = computed(() => Array.isArray(props.places) ? props.places : (props.places?.data ?? []));
+
+function applyFilters(data) {
+    router.get('/reviews', data, {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+}
+
+function resetFilters() {
+    router.get('/reviews', {}, {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+}
 </script>
 
 <template>
-    <AuthenticatedLayout>
-        <h1 class="text-2xl font-bold mb-4">Reviews</h1>
-        <div v-if="reviews?.data?.length" class="space-y-2">
-            <div v-for="review in reviews.data" :key="review.id" class="p-3 border rounded">
-                <div class="text-sm font-semibold">
-                    {{ review.author_name || 'Anonymous' }} - {{ review.rating }}/5
-                </div>
-                <div class="text-sm">{{ review.text }}</div>
-            </div>
+    <AppLayout>
+        <div class="mb-5">
+            <h1 class="text-3xl font-bold text-slate-900">Reviews</h1>
+            <p class="mt-1 text-sm text-slate-500">Global feed across all your organizations.</p>
         </div>
-        <div v-else class="text-gray-600">No reviews found.</div>
-    </AuthenticatedLayout>
+
+        <ReviewFilters
+            :filters="filters"
+            :places="normalizedPlaces"
+            :with-place="true"
+            @apply="applyFilters"
+            @reset="resetFilters"
+        />
+
+        <div v-if="reviews?.data?.length" class="mt-4 space-y-3">
+            <ReviewCard v-for="review in reviews.data" :key="review.id" :review="review" />
+        </div>
+        <div v-else class="mt-4 rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500">
+            No reviews found.
+        </div>
+
+        <div v-if="reviews?.links?.length" class="mt-4">
+            <Pagination :links="reviews.links" />
+        </div>
+    </AppLayout>
 </template>

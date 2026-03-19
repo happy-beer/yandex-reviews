@@ -18,7 +18,7 @@ class SettingsController extends Controller
             ->get()
             ->keyBy('key');
 
-        return Inertia::render('Settings', [
+        return Inertia::render('Settings/Index', [
             'settings' => $this->formatSettingsForView($allowedKeys, $settings),
         ]);
     }
@@ -43,8 +43,12 @@ class SettingsController extends Controller
 
         $userId = $request->user()->id;
 
-        foreach ($data['settings'] as $setting) {
-            Setting::updateOrCreate(
+        foreach ($data['settings'] ?? [] as $setting) {
+            if (!in_array($setting['key'], Setting::allowedKeys(), true)) {
+                continue;
+            }
+
+            Setting::query()->updateOrCreate(
                 ['user_id' => $userId, 'key' => $setting['key']],
                 ['value' => $setting['value']]
             );

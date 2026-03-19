@@ -17,8 +17,6 @@ class Setting extends Model
 
     public static function allowedKeys(): array
     {
-        return [
-            'yandex_url',
-        ];
+        return [];
     }
 }
