@@ -53,4 +53,30 @@ class PlaceSyncControllerTest extends TestCase
 
         $response->assertForbidden();
     }
+
+    public function test_owner_gets_error_flash_when_sync_fails(): void
+    {
+        $user = User::factory()->create();
+
+        $place = Place::query()->create([
+            'user_id' => $user->id,
+            'name' => 'Owned place',
+            'source_url' => 'https://yandex.ru/maps/org/owned/21/reviews/',
+        ]);
+
+        $this->mock(PlaceSyncService::class, function (MockInterface $mock) {
+            $mock->shouldReceive('sync')
+                ->once()
+                ->andReturn([
+                    'status' => 'failed',
+                    'error_message' => 'Provider timeout',
+                ]);
+        });
+
+        $response = $this->actingAs($user)->post(route('places.sync', $place));
+
+        $response
+            ->assertRedirect()
+            ->assertSessionHas('error', 'Provider timeout');
+    }
 }

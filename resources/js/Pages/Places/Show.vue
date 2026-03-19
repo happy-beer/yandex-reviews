@@ -7,7 +7,7 @@ import ReviewCard from '@/Components/ReviewCard.vue';
 import ReviewFilters from '@/Components/ReviewFilters.vue';
 import SyncRunsTable from '@/Components/SyncRunsTable.vue';
 import { Link, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps({
     place: {
@@ -29,6 +29,14 @@ const props = defineProps({
 });
 
 const syncing = ref(false);
+const hasReviewFilters = computed(() =>
+    Boolean(
+        props.filters.search
+        || props.filters.rating
+        || props.filters.date_from
+        || props.filters.date_to
+    )
+);
 
 function applyFilters(data) {
     router.get(`/places/${props.place.id}`, {
@@ -107,8 +115,8 @@ function formatDate(value) {
             </div>
             <EmptyState
                 v-else
-                title="No reviews found"
-                description="Try adjusting search, date, rating or sort filters."
+                :title="hasReviewFilters ? 'No reviews found by current filters' : 'No reviews yet'"
+                :description="hasReviewFilters ? 'Try adjusting search, date, rating or sort filters.' : 'Run a sync to load reviews for this organization.'"
                 class="mt-4"
             />
             <div v-if="reviews.links?.length" class="mt-4">

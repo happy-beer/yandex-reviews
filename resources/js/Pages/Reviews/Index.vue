@@ -23,6 +23,15 @@ const props = defineProps({
 });
 
 const normalizedPlaces = computed(() => Array.isArray(props.places) ? props.places : (props.places?.data ?? []));
+const hasActiveFilters = computed(() =>
+    Boolean(
+        props.filters.place_id
+        || props.filters.rating
+        || props.filters.search
+        || props.filters.date_from
+        || props.filters.date_to
+    )
+);
 
 function applyFilters(data) {
     router.get('/reviews', data, {
@@ -61,8 +70,8 @@ function resetFilters() {
         </div>
         <EmptyState
             v-else
-            title="No reviews found"
-            description="Apply different filters or sync organizations to load data."
+            :title="hasActiveFilters ? 'No reviews found by current filters' : 'No reviews yet'"
+            :description="hasActiveFilters ? 'Try changing filters to broaden the result set.' : 'Sync organizations to populate the global reviews feed.'"
             class="mt-4"
         />
 

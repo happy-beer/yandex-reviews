@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, watch } from 'vue';
+import { onBeforeUnmount, reactive, watch } from 'vue';
 
 const props = defineProps({
     filters: { type: Object, required: true },
@@ -26,6 +26,24 @@ watch(() => props.filters, (value) => {
     form.date_to = value.date_to ?? '';
     form.sort = value.sort ?? 'newest';
 }, { deep: true });
+
+let debounceTimer = null;
+
+watch(() => form.search, () => {
+    if (debounceTimer) {
+        clearTimeout(debounceTimer);
+    }
+
+    debounceTimer = setTimeout(() => {
+        emit('apply', { ...form });
+    }, 400);
+});
+
+onBeforeUnmount(() => {
+    if (debounceTimer) {
+        clearTimeout(debounceTimer);
+    }
+});
 
 function apply() {
     emit('apply', { ...form });
