@@ -5,6 +5,7 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\ReviewsController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PlaceSyncController;
+use App\Http\Controllers\PlaceController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -38,9 +39,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/settings', [SettingsController::class, 'index']);
     Route::post('/settings', [SettingsController::class, 'update']);
 
+    Route::get('/reviews', [ReviewsController::class, 'index'])->name('reviews.index');
     Route::post('/places/{place}/sync', [PlaceSyncController::class, 'store'])->name('places.sync');
+    Route::resource('places', PlaceController::class);
 });
 
-Route::middleware('auth')->get('/api/reviews', [ReviewsController::class, 'index']);
+Route::middleware('auth')->get('/api/reviews', [ReviewsController::class, 'apiIndex']);
 
 require __DIR__.'/auth.php';
