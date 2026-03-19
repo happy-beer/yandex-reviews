@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\ReviewsController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\PlaceSyncController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -36,6 +37,8 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/settings', [SettingsController::class, 'index']);
     Route::post('/settings', [SettingsController::class, 'update']);
+
+    Route::post('/places/{place}/sync', [PlaceSyncController::class, 'store'])->name('places.sync');
 });
 
 Route::middleware('auth')->get('/api/reviews', [ReviewsController::class, 'index']);
