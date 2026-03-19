@@ -6,19 +6,21 @@ use App\Exceptions\YandexProviderException;
 use App\Models\User;
 use App\Services\YandexMapsClient;
 use App\Services\YandexSessionStore;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class HomeControllerTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_home_page_renders_without_yandex_setting(): void
     {
-        $user = User::factory()->make([
+        $user = User::factory()->create([
             'id' => 1,
         ]);
 
-        Auth::login($user);
+        $this->actingAs($user);
 
         $this->mock(\App\Models\Setting::class, function ($mock) {
             $mock->shouldReceive('where->where->first')

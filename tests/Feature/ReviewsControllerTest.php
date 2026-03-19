@@ -10,6 +10,8 @@ use Tests\TestCase;
 
 class ReviewsControllerTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_guest_cannot_access_reviews_endpoint(): void
     {
         $response = $this->getJson('/api/reviews');
