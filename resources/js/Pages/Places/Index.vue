@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import Pagination from '@/Components/Pagination.vue';
 import RatingBadge from '@/Components/RatingBadge.vue';
 import SyncStatusBadge from '@/Components/SyncStatusBadge.vue';
@@ -104,9 +105,11 @@ function formatDate(value) {
                 </tbody>
             </table>
         </div>
-        <div v-else class="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
-            No organizations yet.
-        </div>
+        <EmptyState
+            v-else
+            title="No organizations yet"
+            description="Create your first organization to start syncing reviews."
+        />
 
         <div class="mt-5" v-if="places.links?.length">
             <Pagination :links="places.links" />

@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import Pagination from '@/Components/Pagination.vue';
 import RatingBadge from '@/Components/RatingBadge.vue';
 import ReviewCard from '@/Components/ReviewCard.vue';
@@ -104,9 +105,12 @@ function formatDate(value) {
             <div v-if="reviews?.data?.length" class="mt-4 space-y-3">
                 <ReviewCard v-for="review in reviews.data" :key="review.id" :review="review" :organization-name="place.name" />
             </div>
-            <div v-else class="mt-4 rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500">
-                No reviews found for selected filters.
-            </div>
+            <EmptyState
+                v-else
+                title="No reviews found"
+                description="Try adjusting search, date, rating or sort filters."
+                class="mt-4"
+            />
             <div v-if="reviews.links?.length" class="mt-4">
                 <Pagination :links="reviews.links" />
             </div>
@@ -114,7 +118,12 @@ function formatDate(value) {
 
         <div>
             <h2 class="mb-3 text-xl font-semibold text-slate-900">Sync history</h2>
-            <SyncRunsTable :rows="syncRuns.data || []" />
+            <SyncRunsTable v-if="syncRuns?.data?.length" :rows="syncRuns.data || []" />
+            <EmptyState
+                v-else
+                title="No sync history yet"
+                description="Run your first manual sync to populate history."
+            />
             <div v-if="syncRuns.links?.length" class="mt-4">
                 <Pagination :links="syncRuns.links" />
             </div>

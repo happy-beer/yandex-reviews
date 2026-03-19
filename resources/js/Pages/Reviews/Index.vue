@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import Pagination from '@/Components/Pagination.vue';
 import ReviewCard from '@/Components/ReviewCard.vue';
 import ReviewFilters from '@/Components/ReviewFilters.vue';
@@ -58,9 +59,12 @@ function resetFilters() {
         <div v-if="reviews?.data?.length" class="mt-4 space-y-3">
             <ReviewCard v-for="review in reviews.data" :key="review.id" :review="review" />
         </div>
-        <div v-else class="mt-4 rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500">
-            No reviews found.
-        </div>
+        <EmptyState
+            v-else
+            title="No reviews found"
+            description="Apply different filters or sync organizations to load data."
+            class="mt-4"
+        />
 
         <div v-if="reviews?.links?.length" class="mt-4">
             <Pagination :links="reviews.links" />
