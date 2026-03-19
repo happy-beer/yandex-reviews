@@ -21,8 +21,22 @@ class SyncRun extends Model
         'error_message',
     ];
 
+    protected $casts = [
+        'started_at' => 'datetime',
+        'finished_at' => 'datetime',
+    ];
+
     public function place(): BelongsTo
     {
         return $this->belongsTo(Place::class);
+    }
+
+    public function durationSeconds(): ?int
+    {
+        if (!$this->started_at || !$this->finished_at) {
+            return null;
+        }
+
+        return $this->finished_at->diffInSeconds($this->started_at);
     }
 }
