@@ -211,6 +211,7 @@ class ReviewsPageControllerTest extends TestCase
     public function test_reviews_pagination_links_keep_filters_in_query_string(): void
     {
         $user = User::factory()->create();
+        $perPage = (int) config('reviews.per_page');
 
         $place = Place::query()->create([
             'user_id' => $user->id,
@@ -219,7 +220,7 @@ class ReviewsPageControllerTest extends TestCase
             'is_active' => true,
         ]);
 
-        for ($i = 1; $i <= 18; $i++) {
+        for ($i = 1; $i <= ($perPage + 3); $i++) {
             Review::query()->create([
                 'place_id' => $place->id,
                 'external_id' => 'p-' . $i,
@@ -240,6 +241,7 @@ class ReviewsPageControllerTest extends TestCase
         $response->assertOk();
         $response->assertInertia(fn (Assert $page) => $page
             ->component('Reviews/Index')
+            ->has('reviews.data', $perPage)
             ->where('reviews.links.next', function ($url) {
                 $nextUrl = (string) $url;
                 return str_contains($nextUrl, 'place_id=')

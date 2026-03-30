@@ -80,6 +80,40 @@ class PlaceControllerTest extends TestCase
         );
     }
 
+    public function test_show_paginates_reviews_using_reviews_per_page_config(): void
+    {
+        $user = User::factory()->create();
+        $perPage = (int) config('reviews.per_page');
+
+        $place = Place::query()->create([
+            'user_id' => $user->id,
+            'name' => 'Paged place',
+            'source_url' => 'https://yandex.ru/maps/org/paged/33/reviews/',
+        ]);
+
+        for ($i = 1; $i <= ($perPage + 2); $i++) {
+            Review::query()->create([
+                'place_id' => $place->id,
+                'external_id' => 'paged-' . $i,
+                'author_name' => 'Reviewer ' . $i,
+                'text' => 'Review text ' . $i,
+                'rating' => 5,
+                'published_at' => now()->subMinutes($i),
+            ]);
+        }
+
+        $response = $this->actingAs($user)->get(route('places.show', $place));
+
+        $response->assertOk();
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('Places/Show')
+            ->has('reviews.data', $perPage)
+            ->where('reviews.links.next', function ($url) {
+                return str_contains((string) $url, 'reviews_page=2');
+            })
+        );
+    }
+
     public function test_user_can_store_update_and_delete_own_place(): void
     {
         $user = User::factory()->create();

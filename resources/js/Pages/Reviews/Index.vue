@@ -75,8 +75,11 @@ function resetFilters() {
             class="mt-4"
         />
 
-        <div v-if="reviews?.links?.length" class="mt-4">
-            <Pagination :links="reviews.links" />
+        <div
+            v-if="(reviews?.meta?.last_page ?? 1) > 1 || reviews?.links?.next || reviews?.links?.prev || (reviews?.meta?.links?.length ?? 0) > 3"
+            class="mt-4"
+        >
+            <Pagination :links="reviews.links" :meta="reviews.meta" />
         </div>
     </AppLayout>
 </template>

@@ -119,8 +119,11 @@ function formatDate(value) {
                 :description="hasReviewFilters ? 'Try adjusting search, date, rating or sort filters.' : 'Run a sync to load reviews for this organization.'"
                 class="mt-4"
             />
-            <div v-if="reviews.links?.length" class="mt-4">
-                <Pagination :links="reviews.links" />
+            <div
+                v-if="(reviews?.meta?.last_page ?? 1) > 1 || reviews?.links?.next || reviews?.links?.prev || (reviews?.meta?.links?.length ?? 0) > 3"
+                class="mt-4"
+            >
+                <Pagination :links="reviews.links" :meta="reviews.meta" />
             </div>
         </div>
 
@@ -132,8 +135,11 @@ function formatDate(value) {
                 title="No sync history yet"
                 description="Run your first manual sync to populate history."
             />
-            <div v-if="syncRuns.links?.length" class="mt-4">
-                <Pagination :links="syncRuns.links" />
+            <div
+                v-if="(syncRuns?.meta?.last_page ?? 1) > 1 || syncRuns?.links?.next || syncRuns?.links?.prev || (syncRuns?.meta?.links?.length ?? 0) > 3"
+                class="mt-4"
+            >
+                <Pagination :links="syncRuns.links" :meta="syncRuns.meta" />
             </div>
         </div>
     </AppLayout>

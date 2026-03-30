@@ -16,6 +16,7 @@ class ReviewsController extends Controller
     {
         $data = $request->validated();
         $userId = (int) $request->user()->id;
+        $perPage = max((int) config('reviews.per_page', 15), 1);
 
         $ownedPlaceIds = Place::query()
             ->ownedBy($userId)
@@ -50,7 +51,7 @@ class ReviewsController extends Controller
         }
 
         $reviews = $query
-            ->paginate(15)
+            ->paginate($perPage)
             ->withQueryString();
 
         $places = Place::query()

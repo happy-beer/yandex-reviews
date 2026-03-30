@@ -52,6 +52,7 @@ class PlaceController extends Controller
     public function show(Request $request, Place $place): Response
     {
         $this->authorize('view', $place);
+        $perPage = max((int) config('reviews.per_page', 10), 1);
 
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:255'],
@@ -80,7 +81,7 @@ class PlaceController extends Controller
         }
 
         $reviews = $reviewsQuery
-            ->paginate(10, ['*'], 'reviews_page')
+            ->paginate($perPage, ['*'], 'reviews_page')
             ->withQueryString();
 
         $syncRuns = $place->syncRuns()

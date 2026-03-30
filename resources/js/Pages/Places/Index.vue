@@ -111,8 +111,11 @@ function formatDate(value) {
             description="Create your first organization to start syncing reviews."
         />
 
-        <div class="mt-5" v-if="places.links?.length">
-            <Pagination :links="places.links" />
+        <div
+            class="mt-5"
+            v-if="(places?.meta?.last_page ?? 1) > 1 || places?.links?.next || places?.links?.prev || (places?.meta?.links?.length ?? 0) > 3"
+        >
+            <Pagination :links="places.links" :meta="places.meta" />
         </div>
     </AppLayout>
 </template>
